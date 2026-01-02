@@ -489,26 +489,13 @@ Log:
 */
 
 const DEFAULT_HABITS = [
-  {name:'Water', icon:'💧', kind:'count', required:true, maxPerDay: 20},
-  {name:'Walk', icon:'🚶‍♀️', kind:'check', required:true},
-  {name:'Stretch', icon:'🧘‍♀️', kind:'check', required:true},
-  {name:'Vitamins', icon:'💊', kind:'check', required:true},
-  {name:'Read', icon:'📚', kind:'check', required:false},
-  {name:'Meditate', icon:'🧠', kind:'check', required:false},
-  {name:'Sleep 8h', icon:'😴', kind:'check', required:true},
-  {name:'No sugar', icon:'🍬', kind:'check', required:false},
-  {name:'Workout', icon:'🏋️‍♀️', kind:'check', required:false},
-  {name:'Cook at home', icon:'🍳', kind:'check', required:false},
-  {name:'Journal', icon:'📝', kind:'check', required:false},
-  {name:'Clean', icon:'🧼', kind:'check', required:false},
-  {name:'Study', icon:'🎓', kind:'check', required:false},
-  {name:'Sunlight', icon:'🌞', kind:'check', required:true},
-  {name:'Call family', icon:'📞', kind:'check', required:false},
-  {name:'Skin care', icon:'🧴', kind:'check', required:false},
-  {name:'No alcohol', icon:'🚫🍷', kind:'check', required:true},
-  {name:'Surfing', icon:'🏄‍♀️', kind:'count', required:false, maxPerDay: 5},
-  {name:'Yoga', icon:'🧘', kind:'check', required:false},
-  {name:'Plan tomorrow', icon:'✅', kind:'check', required:false},
+  {
+    id: uid(),
+    name: 'Surfing',
+    emoji: '🏄',
+    type: 'count',   // count = сколько раз
+    required: false
+  }
 ];
 
 /* ---------- App state ---------- */
