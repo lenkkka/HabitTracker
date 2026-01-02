@@ -1,0 +1,1151 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0b0b0c" />
+  <title>Habit Tracker</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.webmanifest">
+  <style>
+
+    :root{
+      --radius:16px;
+      --accent:#2dd4ff;
+      --accent2:#60a5fa;
+      --good:#22c55e; --warn:#fbbf24; --bad:#fb7185;
+
+      /* Dark (default) */
+      --bg:#06121a;
+      --card:rgba(7, 24, 34, .72);
+      --text:#eaf6ff;
+      --muted:rgba(234,246,255,.68);
+      --line:rgba(234,246,255,.14);
+
+      --glass: rgba(255,255,255,.05);
+      --shadow: 0 18px 60px rgba(0,0,0,.35);
+      --wave1: rgba(45, 212, 255, .18);
+      --wave2: rgba(96, 165, 250, .16);
+    }
+
+    /* Light theme */
+    body[data-theme="light"]{
+      --bg:#f3fbff;
+      --card:rgba(255,255,255,.82);
+      --text:#08202a;
+      --muted:rgba(8,32,42,.62);
+      --line:rgba(8,32,42,.12);
+
+      --glass: rgba(8,32,42,.04);
+      --shadow: 0 18px 60px rgba(8,32,42,.12);
+      --wave1: rgba(45, 212, 255, .30);
+      --wave2: rgba(96, 165, 250, .26);
+    }
+
+    *{ box-sizing:border-box; }
+
+    body{
+      margin:0;
+      background: radial-gradient(1200px 600px at 15% -10%, rgba(45,212,255,.25), transparent 60%),
+                  radial-gradient(900px 520px at 85% 0%, rgba(96,165,250,.22), transparent 55%),
+                  linear-gradient(180deg, var(--bg), var(--bg));
+      color:var(--text);
+      font-family: ui-sans-serif, -apple-system, system-ui, Segoe UI, Roboto, Helvetica, Arial;
+      overflow-x:hidden;
+    }
+
+    /* Ocean waves background */
+    body::before, body::after{
+      content:"";
+      position: fixed;
+      left: -10vw;
+      right: -10vw;
+      height: 260px;
+      pointer-events:none;
+      z-index: -1;
+      filter: blur(0px);
+      opacity: 1;
+      transform: translateZ(0);
+      background-repeat: repeat-x;
+      background-size: 900px 260px;
+      animation: waveMove 18s linear infinite;
+      bottom: -90px;
+      background-image:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='900' height='260' viewBox='0 0 900 260'%3E%3Cpath d='M0 150 C120 120 180 220 300 190 C420 160 480 80 600 120 C720 160 780 230 900 190 L900 260 L0 260 Z' fill='%23ffffff' fill-opacity='0.0'/%3E%3Cpath d='M0 170 C140 120 220 240 340 200 C460 160 520 70 650 110 C780 150 820 230 900 210 L900 260 L0 260 Z' fill='%23ffffff' fill-opacity='1'/%3E%3C/svg%3E");
+      mask-image: linear-gradient(180deg, transparent 0%, black 30%, black 100%);
+      -webkit-mask-image: linear-gradient(180deg, transparent 0%, black 30%, black 100%);
+      mix-blend-mode: soft-light;
+    }
+    body::before{
+      background-color: var(--wave1);
+      animation-duration: 22s;
+      bottom: -110px;
+    }
+    body::after{
+      background-color: var(--wave2);
+      animation-duration: 16s;
+      bottom: -90px;
+      opacity: .9;
+    }
+    @keyframes waveMove{
+      from{ background-position-x: 0; }
+      to{ background-position-x: 900px; }
+    }
+
+header{
+      position:sticky; top:0; z-index:10;
+      background: rgba(11,11,12,.86); backdrop-filter: blur(10px);
+      border-bottom:1px solid var(--line);
+    }
+    .wrap{ max-width: 980px; margin: 0 auto; padding: 16px; }
+    .row{ display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+    .spacer{ flex:1; }
+    h1{ font-size: 18px; margin:0; letter-spacing:.2px; }
+    .pill{
+      background:var(--card); border:1px solid var(--line); backdrop-filter: blur(10px); color:var(--text);
+      padding:10px 12px; border-radius:999px; cursor:pointer;
+      display:inline-flex; align-items:center; gap:8px;
+      user-select:none;
+    }
+    .pill[aria-pressed="true"]{ border-color: rgba(91,140,255,.7); box-shadow: 0 0 0 2px rgba(91,140,255,.18) inset; }
+    .btn{
+      background:var(--accent); color:#081025; border:none; padding:10px 12px;
+      border-radius:12px; cursor:pointer; font-weight:600;
+    }
+    .btn.secondary{ background:transparent; color:var(--text); border:1px solid var(--line); }
+    .btn.danger{ background:transparent; color:var(--bad); border:1px solid rgba(255,92,92,.4); }
+    .btn:active,.pill:active{ transform: translateY(1px); }
+    .card{
+      background:var(--card); border:1px solid var(--line); backdrop-filter: blur(10px);
+      border-radius: var(--radius); padding: 14px;
+      box-shadow: var(--shadow);
+    }
+    .grid{ display:grid; gap:12px; }
+    @media(min-width: 920px){ .grid.cols2{ grid-template-columns: 1.2fr .8fr; } }
+
+    .datebar{
+      display:flex; gap:8px; align-items:center; justify-content:space-between;
+      padding:10px 12px; border:1px solid var(--line); border-radius: 14px; background: var(--glass);
+    }
+    .datebtn{
+      width:40px; height:40px; border-radius: 12px;
+      border:1px solid var(--line); background:transparent; color:var(--text);
+      cursor:pointer;
+    }
+    .datebtn:disabled{ opacity:.4; cursor:not-allowed; }
+    .datebig{ font-weight:700; }
+    .muted{ color:var(--muted); }
+    .tabs{ display:flex; gap:8px; }
+    .tab{
+      flex:1; text-align:center;
+      padding:10px 12px; border-radius: 14px; border:1px solid var(--line);
+      background:transparent; color:var(--text); cursor:pointer;
+    }
+    .tab.active{ border-color: rgba(91,140,255,.7); box-shadow: 0 0 0 2px rgba(91,140,255,.18) inset; }
+
+    .habit{
+      display:flex; gap:12px; align-items:center; padding:12px;
+      border-radius: 14px; border:1px solid var(--line);
+      background: var(--glass);
+    }
+    .icon{
+      width:40px; height:40px; display:grid; place-items:center;
+      border-radius: 12px; background: rgba(255,255,255,.04);
+      font-size: 20px;
+    }
+    .title{ font-weight:700; }
+    .meta{ font-size: 12px; color: var(--muted); margin-top:2px; }
+    .chip{
+      font-size: 12px; padding:4px 8px; border-radius: 999px;
+      border:1px solid var(--line); color: var(--muted);
+    }
+    .chip.req{ color: var(--warn); border-color: rgba(255,204,0,.35); }
+    .chip.count{ color: rgba(91,140,255,.9); border-color: rgba(91,140,255,.35); }
+
+    .toggle{
+      margin-left:auto;
+      width:52px; height:32px; border-radius: 999px;
+      border:1px solid var(--line); background: rgba(255,255,255,.03);
+      position:relative; cursor:pointer;
+    }
+    .toggle::after{
+      content:""; position:absolute; top:4px; left:4px;
+      width:24px; height:24px; border-radius: 999px;
+      background: rgba(255,255,255,.18);
+      transition: left .15s ease, background .15s ease;
+    }
+    .toggle.on{ border-color: rgba(37,211,102,.5); }
+    .toggle.on::after{ left: 24px; background: var(--good); }
+
+    .counter{
+      margin-left:auto;
+      display:flex; align-items:center; gap:8px;
+    }
+    .step{
+      width:36px; height:36px; border-radius: 12px;
+      border:1px solid var(--line); background: transparent; color: var(--text);
+      cursor:pointer;
+      font-size: 18px; line-height: 0;
+    }
+    .countval{
+      min-width: 36px; text-align:center; font-weight:800;
+      padding: 6px 10px; border-radius: 12px; border:1px solid var(--line);
+      background: var(--glass);
+    }
+
+    .sectionTitle{ font-size: 14px; margin: 0 0 10px; color: var(--muted); text-transform: uppercase; letter-spacing:.12em; }
+    .kpis{ display:grid; grid-template-columns: repeat(3, 1fr); gap:10px; }
+    .kpi{ padding:12px; border-radius: 14px; border:1px solid var(--line); background: var(--glass); }
+    .kpi .v{ font-size: 22px; font-weight:900; }
+    .kpi .l{ font-size: 12px; color: var(--muted); }
+
+    canvas{ width:100%; height: 240px; border-radius: 14px; border:1px solid var(--line); background: var(--glass); }
+    .small{ font-size: 12px; }
+
+    dialog{
+      width:min(720px, 96vw); border:none; padding:0;
+      background: var(--card); color: var(--text);
+      border-radius: 18px; border:1px solid var(--line);
+      box-shadow: 0 30px 80px rgba(0,0,0,.45);
+    }
+    dialog::backdrop{ background: rgba(0,0,0,.6); }
+    .modalHead{ padding:14px 14px 10px; border-bottom:1px solid var(--line); }
+    .modalBody{ padding:14px; }
+    .modalFoot{ padding:12px 14px; border-top:1px solid var(--line); display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap; }
+    input, select{
+      width:100%; background: rgba(255,255,255,.03); color: var(--text);
+      border:1px solid var(--line); border-radius: 12px; padding:10px 12px;
+      outline:none;
+    }
+    label{ display:block; font-size: 12px; color: var(--muted); margin: 10px 0 6px; }
+    .list{ display:grid; gap:10px; }
+    .habRow{
+      display:grid; grid-template-columns: 44px 1fr 120px 110px; gap:10px; align-items:center;
+      padding:10px; border-radius: 14px; border:1px solid var(--line); background: var(--glass);
+    }
+    @media(max-width: 620px){ .habRow{ grid-template-columns: 44px 1fr; } .habRow > *:nth-child(n+3){ grid-column: 1 / -1; } }
+    .miniBtns{ display:flex; gap:10px; flex-wrap:wrap; }
+    .note{ padding:10px 12px; border-radius: 14px; border:1px dashed rgba(255,255,255,.14); color: var(--muted); background: var(--glass); }
+    a{ color: var(--accent); text-decoration:none; }
+  </style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="row">
+      <h1>🌊 Habit Tracker</h1>
+      <div class="spacer"></div>
+      <button class="pill" id="btnManage" type="button">⚙️ Manage</button>
+      <button class="pill" id="btnBackup" type="button">🧰 Backup</button>
+      <button class="pill" id="btnTheme" type="button" title="Toggle theme">🌙 Dark</button>
+      <button class="pill" id="btnInstall" type="button" title="Install tips">📲 Install</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="grid cols2">
+    <div class="card">
+      <div class="datebar">
+        <button class="datebtn" id="prevDay" aria-label="Previous day">‹</button>
+        <div>
+          <div class="datebig" id="dateLabel">—</div>
+          <div class="muted small" id="dateSub">—</div>
+        </div>
+        <button class="datebtn" id="nextDay" aria-label="Next day">›</button>
+      </div>
+
+      <div style="height:10px"></div>
+
+      <div class="tabs">
+        <button class="tab active" id="tabToday" type="button">Today</button>
+        <button class="tab" id="tabAll" type="button">All habits</button>
+      </div>
+
+      <div style="height:12px"></div>
+
+      <div class="note small">
+        Tip: tap ✅ habits to toggle. For count habits (like surfing), use + / −.
+      </div>
+
+      <div style="height:12px"></div>
+      <div class="list" id="habitList"></div>
+    </div>
+
+    <div class="card">
+      <div class="row" style="align-items:flex-start">
+        <div>
+          <div class="sectionTitle">Stats</div>
+          <div class="muted small">Required habits track completion %. Count habits track totals.</div>
+        </div>
+        <div class="spacer"></div>
+        <button class="pill" id="rangeBtn" type="button" aria-pressed="false">Recent ▾</button>
+      </div>
+
+      <div style="height:12px"></div>
+
+      <div class="kpis">
+        <div class="kpi">
+          <div class="v" id="kpiCompletion">—</div>
+          <div class="l">Required completion</div>
+        </div>
+        <div class="kpi">
+          <div class="v" id="kpiStreak">—</div>
+          <div class="l">Streak (required)</div>
+        </div>
+        <div class="kpi">
+          <div class="v" id="kpiCounts">—</div>
+          <div class="l">Total count actions</div>
+        </div>
+      </div>
+
+      <div style="height:12px"></div>
+      <canvas id="chart"></canvas>
+      <div style="height:10px"></div>
+      <div class="muted small" id="chartCaption">—</div>
+    </div>
+  </div>
+</main>
+
+<!-- Range menu -->
+<dialog id="rangeDialog">
+  <div class="modalHead">
+    <div class="row">
+      <div style="font-weight:800">Stats range</div>
+      <div class="spacer"></div>
+      <button class="btn secondary" id="closeRange" type="button">Close</button>
+    </div>
+  </div>
+  <div class="modalBody">
+    <div class="list">
+      <button class="pill" data-range="7" type="button">Recent (7 days)</button>
+      <button class="pill" data-range="30" type="button">Recent (30 days)</button>
+      <button class="pill" data-range="90" type="button">Recent (90 days)</button>
+      <button class="pill" data-range="0" type="button">All time</button>
+    </div>
+    <div style="height:12px"></div>
+    <div class="note small">“Recent” is the default. Pick a range to update the stats and chart.</div>
+  </div>
+</dialog>
+
+<!-- Manage habits -->
+<dialog id="manageDialog">
+  <div class="modalHead">
+    <div class="row">
+      <div style="font-weight:800">Manage habits</div>
+      <div class="spacer"></div>
+      <button class="btn secondary" id="closeManage" type="button">Close</button>
+    </div>
+  </div>
+  <div class="modalBody">
+    <div class="note small">
+      You can edit the list any time. Required habits are counted for completion/streak. Count habits (like surfing) track totals.
+    </div>
+    <div style="height:12px"></div>
+
+    <div class="row">
+      <button class="btn" id="addHabit" type="button">+ Add habit</button>
+      <button class="btn danger" id="resetApp" type="button" title="Deletes all habits & logs">Reset app</button>
+      <div class="spacer"></div>
+    </div>
+
+    <div style="height:12px"></div>
+    <div class="list" id="manageList"></div>
+
+    <div style="height:12px"></div>
+    <div class="note small">
+      iPhone install: open in Safari → Share → “Add to Home Screen”.
+    </div>
+  </div>
+</dialog>
+
+<!-- Backup -->
+<dialog id="backupDialog">
+  <div class="modalHead">
+    <div class="row">
+      <div style="font-weight:800">Backup</div>
+      <div class="spacer"></div>
+      <button class="btn secondary" id="closeBackup" type="button">Close</button>
+    </div>
+  </div>
+  <div class="modalBody">
+    <div class="note small">
+      Your data is stored locally on this iPhone. Export a backup file sometimes (weekly/monthly) to be extra safe.
+    </div>
+    <div style="height:12px"></div>
+    <div class="miniBtns">
+      <button class="btn" id="exportBtn" type="button">Export backup (.json)</button>
+      <label class="btn secondary" style="cursor:pointer">
+        Import backup
+        <input id="importFile" type="file" accept="application/json" style="display:none">
+      </label>
+    </div>
+    <div style="height:12px"></div>
+    <div class="muted small" id="backupStatus">—</div>
+  </div>
+</dialog>
+
+<!-- Install tips -->
+<dialog id="installDialog">
+  <div class="modalHead">
+    <div class="row">
+      <div style="font-weight:800">Install on iPhone</div>
+      <div class="spacer"></div>
+      <button class="btn secondary" id="closeInstall" type="button">Close</button>
+    </div>
+  </div>
+  <div class="modalBody">
+    <ol class="small muted" style="line-height:1.6; margin:0; padding-left: 18px;">
+      <li>Open this page in <b>Safari</b> (not inside another app’s browser).</li>
+      <li>Tap the <b>Share</b> icon.</li>
+      <li>Choose <b>Add to Home Screen</b>.</li>
+      <li>Open it from the new icon like a normal app.</li>
+    </ol>
+    <div style="height:12px"></div>
+    <div class="note small">For best offline use, open it once after installing so everything is cached.</div>
+  </div>
+</dialog>
+
+<script>
+/* ---------- Utilities ---------- */
+const $$ = (sel, el=document)=>el.querySelector(sel);
+const $$$ = (sel, el=document)=>Array.from(el.querySelectorAll(sel));
+const pad = (n)=>String(n).padStart(2,'0');
+const toISODate = (d)=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const fromISODate = (s)=>{ const [y,m,dd]=s.split('-').map(Number); return new Date(y, m-1, dd); };
+const addDays = (d, n)=>{ const x=new Date(d); x.setDate(x.getDate()+n); return x; };
+const startOfDay = (d)=>{ const x=new Date(d); x.setHours(0,0,0,0); return x; };
+const fmtLong = (d)=>d.toLocaleDateString(undefined, {weekday:'short', month:'short', day:'numeric', year:'numeric'});
+const fmtShort = (d)=>d.toLocaleDateString(undefined, {month:'short', day:'numeric'});
+const clamp = (v, a, b)=>Math.max(a, Math.min(b, v));
+
+/* ---------- Simple IndexedDB wrapper ---------- */
+const DB_NAME = 'habit_pwa_db_v1';
+const DB_VER  = 1;
+let db;
+
+function idbOpen(){
+  return new Promise((resolve, reject)=>{
+    const req = indexedDB.open(DB_NAME, DB_VER);
+    req.onupgradeneeded = (e)=>{
+      const db = req.result;
+      if(!db.objectStoreNames.contains('meta')) db.createObjectStore('meta');
+      if(!db.objectStoreNames.contains('habits')) db.createObjectStore('habits', {keyPath:'id'});
+      if(!db.objectStoreNames.contains('logs')) db.createObjectStore('logs', {keyPath:'key'}); // key = `${date}|${habitId}`
+    };
+    req.onsuccess = ()=>resolve(req.result);
+    req.onerror = ()=>reject(req.error);
+  });
+}
+function tx(store, mode='readonly'){ return db.transaction(store, mode).objectStore(store); }
+
+function idbGet(store, key){
+  return new Promise((resolve, reject)=>{
+    const req = tx(store).get(key);
+    req.onsuccess = ()=>resolve(req.result);
+    req.onerror = ()=>reject(req.error);
+  });
+}
+function idbPut(store, val){
+  return new Promise((resolve, reject)=>{
+    const req = tx(store,'readwrite').put(val);
+    req.onsuccess = ()=>resolve(true);
+    req.onerror = ()=>reject(req.error);
+  });
+}
+function idbDel(store, key){
+  return new Promise((resolve, reject)=>{
+    const req = tx(store,'readwrite').delete(key);
+    req.onsuccess = ()=>resolve(true);
+    req.onerror = ()=>reject(req.error);
+  });
+}
+function idbAll(store){
+  return new Promise((resolve, reject)=>{
+    const req = tx(store).getAll();
+    req.onsuccess = ()=>resolve(req.result || []);
+    req.onerror = ()=>reject(req.error);
+  });
+}
+
+/* ---------- Data model ---------- */
+/*
+Habit:
+  { id, name, icon, kind: 'check'|'count', required: boolean, maxPerDay?: number }
+Log:
+  for check: { key, date, habitId, v: 0|1 }
+  for count: { key, date, habitId, v: number }
+*/
+
+const DEFAULT_HABITS = [
+  {name:'Water', icon:'💧', kind:'count', required:true, maxPerDay: 20},
+  {name:'Walk', icon:'🚶‍♀️', kind:'check', required:true},
+  {name:'Stretch', icon:'🧘‍♀️', kind:'check', required:true},
+  {name:'Vitamins', icon:'💊', kind:'check', required:true},
+  {name:'Read', icon:'📚', kind:'check', required:false},
+  {name:'Meditate', icon:'🧠', kind:'check', required:false},
+  {name:'Sleep 8h', icon:'😴', kind:'check', required:true},
+  {name:'No sugar', icon:'🍬', kind:'check', required:false},
+  {name:'Workout', icon:'🏋️‍♀️', kind:'check', required:false},
+  {name:'Cook at home', icon:'🍳', kind:'check', required:false},
+  {name:'Journal', icon:'📝', kind:'check', required:false},
+  {name:'Clean', icon:'🧼', kind:'check', required:false},
+  {name:'Study', icon:'🎓', kind:'check', required:false},
+  {name:'Sunlight', icon:'🌞', kind:'check', required:true},
+  {name:'Call family', icon:'📞', kind:'check', required:false},
+  {name:'Skin care', icon:'🧴', kind:'check', required:false},
+  {name:'No alcohol', icon:'🚫🍷', kind:'check', required:true},
+  {name:'Surfing', icon:'🏄‍♀️', kind:'count', required:false, maxPerDay: 5},
+  {name:'Yoga', icon:'🧘', kind:'check', required:false},
+  {name:'Plan tomorrow', icon:'✅', kind:'check', required:false},
+];
+
+/* ---------- App state ---------- */
+let habits = [];
+let selectedDate = startOfDay(new Date());
+let activeTab = 'today'; // 'today' | 'all'
+let rangeDays = 7; // default "Recent"
+let logsCache = new Map(); // key -> v
+
+function newId(){ return 'h_' + Math.random().toString(36).slice(2,10) + Date.now().toString(36).slice(-4); }
+function logKey(dateISO, habitId){ return `${dateISO}|${habitId}`; }
+
+/* ---------- Boot ---------- */
+(async function init(){
+  db = await idbOpen();
+
+  // first run: seed habits
+  const seeded = await idbGet('meta','seeded');
+  if(!seeded){
+    for(const h of DEFAULT_HABITS){
+      await idbPut('habits', {...h, id:newId()});
+    }
+    await idbPut('meta','seeded', true);
+    await idbPut('meta','rangeDays', rangeDays);
+  } else {
+    const rd = await idbGet('meta','rangeDays');
+    if(typeof rd === 'number') rangeDays = rd;
+  }
+
+
+  // theme
+  const savedTheme = await idbGet('meta','theme');
+  if(savedTheme === 'light' || savedTheme === 'dark'){
+    document.body.dataset.theme = savedTheme === 'light' ? 'light' : 'dark';
+  } else {
+    document.body.dataset.theme = 'dark';
+  }
+
+  await refreshHabits();
+  await warmLogsCache(rangeDays);
+
+  wireUI();
+  renderAll();
+  registerSW();
+})();
+
+async function refreshHabits(){
+  habits = (await idbAll('habits')).sort((a,b)=>a.name.localeCompare(b.name));
+}
+
+async function warmLogsCache(days){
+  logsCache.clear();
+  // load logs for last N days + selected date
+  const all = await idbAll('logs');
+  for(const l of all) logsCache.set(l.key, l.v);
+}
+
+async function getLog(dateISO, habitId){
+  const k = logKey(dateISO, habitId);
+  if(logsCache.has(k)) return logsCache.get(k);
+  const rec = await idbGet('logs', k);
+  if(rec){ logsCache.set(k, rec.v); return rec.v; }
+  logsCache.set(k, 0);
+  return 0;
+}
+
+async function setLog(dateISO, habitId, v){
+  const k = logKey(dateISO, habitId);
+  if(v === 0 || v === null || v === undefined){
+    await idbDel('logs', k);
+    logsCache.set(k, 0);
+    return;
+  }
+  await idbPut('logs', {key:k, date:dateISO, habitId, v});
+  logsCache.set(k, v);
+}
+
+/* ---------- UI wiring ---------- */
+function wireUI(){
+  // date nav
+  $$('#prevDay').onclick = async ()=>{ selectedDate = addDays(selectedDate, -1); renderAll(); };
+  $$('#nextDay').onclick = async ()=>{ selectedDate = addDays(selectedDate, +1); renderAll(); };
+
+  // tabs
+  $$('#tabToday').onclick = ()=>{ activeTab='today'; $$('#tabToday').classList.add('active'); $$('#tabAll').classList.remove('active'); renderHabits(); };
+  $$('#tabAll').onclick = ()=>{ activeTab='all'; $$('#tabAll').classList.add('active'); $$('#tabToday').classList.remove('active'); renderHabits(); };
+
+
+  // theme toggle
+  const themeBtn = $$('#btnTheme');
+  const setThemeBtnLabel = ()=>{
+    const isLight = document.body.dataset.theme === 'light';
+    themeBtn.textContent = isLight ? '☀️ Light' : '🌙 Dark';
+  };
+  setThemeBtnLabel();
+  themeBtn.onclick = async ()=>{
+    const next = (document.body.dataset.theme === 'light') ? 'dark' : 'light';
+    document.body.dataset.theme = next;
+    await idbPut('meta','theme', next);
+    setThemeBtnLabel();
+    // redraw chart for crisp text contrast (same colors, just re-render)
+    updateStatsAndChart();
+  };
+
+
+  // dialogs
+  const rangeDialog = $$('#rangeDialog');
+  const manageDialog = $$('#manageDialog');
+  const backupDialog = $$('#backupDialog');
+  const installDialog = $$('#installDialog');
+
+  $$('#rangeBtn').onclick = ()=> rangeDialog.showModal();
+  $$('#closeRange').onclick = ()=> rangeDialog.close();
+
+  $$$('#rangeDialog [data-range]').forEach(btn=>{
+    btn.onclick = async ()=>{
+      rangeDays = Number(btn.dataset.range);
+      await idbPut('meta','rangeDays', rangeDays);
+      $$('#rangeBtn').textContent = rangeDays===0 ? 'All time ▾' : `Recent ▾`;
+      rangeDialog.close();
+      await updateStatsAndChart();
+    };
+  });
+
+  $$('#btnManage').onclick = async ()=>{
+  
+  // theme
+  const savedTheme = await idbGet('meta','theme');
+  if(savedTheme === 'light' || savedTheme === 'dark'){
+    document.body.dataset.theme = savedTheme === 'light' ? 'light' : 'dark';
+  } else {
+    document.body.dataset.theme = 'dark';
+  }
+
+  await refreshHabits();
+    renderManage();
+    manageDialog.showModal();
+  };
+  $$('#closeManage').onclick = ()=> manageDialog.close();
+
+  $$('#btnBackup').onclick = ()=>{
+    $$('#backupStatus').textContent = '—';
+    backupDialog.showModal();
+  };
+  $$('#closeBackup').onclick = ()=> backupDialog.close();
+
+  $$('#btnInstall').onclick = ()=> installDialog.showModal();
+  $$('#closeInstall').onclick = ()=> installDialog.close();
+
+  // manage actions
+  $$('#addHabit').onclick = async ()=>{
+    const h = { id:newId(), name:'New habit', icon:'✨', kind:'check', required:false };
+    await idbPut('habits', h);
+  
+  // theme
+  const savedTheme = await idbGet('meta','theme');
+  if(savedTheme === 'light' || savedTheme === 'dark'){
+    document.body.dataset.theme = savedTheme === 'light' ? 'light' : 'dark';
+  } else {
+    document.body.dataset.theme = 'dark';
+  }
+
+  await refreshHabits();
+    renderManage();
+    renderAll();
+  };
+
+  $$('#resetApp').onclick = async ()=>{
+    if(!confirm('Reset will delete ALL habits and ALL logs on this device. Continue?')) return;
+    // delete DB by removing stores content
+    const allH = await idbAll('habits');
+    for(const h of allH) await idbDel('habits', h.id);
+    const allL = await idbAll('logs');
+    for(const l of allL) await idbDel('logs', l.key);
+    await idbPut('meta','seeded', false);
+    location.reload();
+  };
+
+  // backup actions
+  $$('#exportBtn').onclick = exportBackup;
+  $$('#importFile').onchange = importBackup;
+}
+
+/* ---------- Rendering ---------- */
+function renderAll(){
+  // date labels
+  const d = selectedDate;
+  const iso = toISODate(d);
+  $$('#dateLabel').textContent = fmtLong(d);
+  $$('#dateSub').textContent = iso;
+  // disable nextDay if in future
+  const today = startOfDay(new Date());
+  $$('#nextDay').disabled = d.getTime() >= today.getTime();
+  renderHabits();
+  updateStatsAndChart();
+  // range button label
+  $$('#rangeBtn').textContent = rangeDays===0 ? 'All time ▾' : 'Recent ▾';
+}
+
+function habitRow(h, value){
+  const el = document.createElement('div');
+  el.className = 'habit';
+
+  const icon = document.createElement('div');
+  icon.className = 'icon';
+  icon.textContent = h.icon || '•';
+
+  const info = document.createElement('div');
+  info.style.minWidth = '0';
+  const title = document.createElement('div');
+  title.className = 'title';
+  title.textContent = h.name;
+  const meta = document.createElement('div');
+  meta.className = 'meta';
+  meta.textContent = h.kind === 'count' ? 'Count habit' : 'Check habit';
+  info.appendChild(title);
+  info.appendChild(meta);
+
+  const chips = document.createElement('div');
+  chips.style.display = 'flex';
+  chips.style.gap = '6px';
+  chips.style.flexWrap = 'wrap';
+  chips.style.marginTop = '6px';
+
+  if(h.required){
+    const c = document.createElement('span');
+    c.className = 'chip req';
+    c.textContent = 'Required';
+    chips.appendChild(c);
+  }
+  if(h.kind === 'count'){
+    const c = document.createElement('span');
+    c.className = 'chip count';
+    c.textContent = 'Count';
+    chips.appendChild(c);
+  }
+  info.appendChild(chips);
+
+  el.appendChild(icon);
+  el.appendChild(info);
+
+  if(h.kind === 'check'){
+    const t = document.createElement('div');
+    t.className = 'toggle' + (value ? ' on' : '');
+    t.setAttribute('role','switch');
+    t.setAttribute('aria-checked', value ? 'true':'false');
+    t.onclick = async ()=>{
+      const iso = toISODate(selectedDate);
+      const cur = await getLog(iso, h.id);
+      const next = cur ? 0 : 1;
+      await setLog(iso, h.id, next);
+      renderHabits();
+      updateStatsAndChart();
+    };
+    el.appendChild(t);
+  } else {
+    const counter = document.createElement('div');
+    counter.className = 'counter';
+
+    const minus = document.createElement('button');
+    minus.className = 'step';
+    minus.textContent = '−';
+    minus.onclick = async ()=>{
+      const iso = toISODate(selectedDate);
+      const cur = await getLog(iso, h.id);
+      const next = clamp((cur||0)-1, 0, h.maxPerDay || 999);
+      await setLog(iso, h.id, next);
+      renderHabits();
+      updateStatsAndChart();
+    };
+
+    const val = document.createElement('div');
+    val.className = 'countval';
+    val.textContent = value || 0;
+
+    const plus = document.createElement('button');
+    plus.className = 'step';
+    plus.textContent = '+';
+    plus.onclick = async ()=>{
+      const iso = toISODate(selectedDate);
+      const cur = await getLog(iso, h.id);
+      const next = clamp((cur||0)+1, 0, h.maxPerDay || 999);
+      await setLog(iso, h.id, next);
+      renderHabits();
+      updateStatsAndChart();
+    };
+
+    counter.appendChild(minus);
+    counter.appendChild(val);
+    counter.appendChild(plus);
+    el.appendChild(counter);
+  }
+
+  return el;
+}
+
+async function renderHabits(){
+  const iso = toISODate(selectedDate);
+  const list = $$('#habitList');
+  list.innerHTML = '';
+
+  // filter for "Today" tab: show required first + any with nonzero today
+  let shown = habits.slice();
+  if(activeTab === 'today'){
+    const vals = await Promise.all(habits.map(async h => [h, await getLog(iso, h.id)]));
+    const required = vals.filter(([h])=>h.required);
+    const active = vals.filter(([h,v])=>!h.required && (h.kind==='check' ? !!v : (v||0)>0));
+    const rest = vals.filter(([h,v])=>!h.required && !active.includes([h,v]));
+    // Sort required then active then others
+    shown = [...required.map(x=>x[0]), ...active.map(x=>x[0]), ...vals.filter(([h])=>!h.required).map(x=>x[0])];
+    // remove duplicates while preserving order
+    const seen = new Set();
+    shown = shown.filter(h=> (seen.has(h.id) ? false : (seen.add(h.id), true)));
+  }
+
+  for(const h of shown){
+    const v = await getLog(iso, h.id);
+    list.appendChild(habitRow(h, v));
+  }
+}
+
+/* ---------- Manage rendering ---------- */
+function renderManage(){
+  const box = $$('#manageList');
+  box.innerHTML = '';
+  for(const h of habits){
+    const row = document.createElement('div');
+    row.className = 'habRow';
+
+    const ic = document.createElement('div');
+    ic.className = 'icon';
+    ic.textContent = h.icon || '•';
+
+    const name = document.createElement('div');
+    const nameInput = document.createElement('input');
+    nameInput.value = h.name;
+    nameInput.onchange = async ()=>{ h.name = nameInput.value.trim() || 'Habit'; await idbPut('habits', h); await refreshHabits(); renderManage(); renderAll(); };
+    const iconInput = document.createElement('input');
+    iconInput.value = h.icon || '';
+    iconInput.placeholder = 'Emoji icon (e.g., 🏄‍♀️)';
+    iconInput.onchange = async ()=>{ h.icon = iconInput.value.trim() || '•'; await idbPut('habits', h); await refreshHabits(); renderManage(); renderAll(); };
+    name.appendChild(nameInput);
+    name.appendChild(document.createElement('div')).style.height='8px';
+    name.appendChild(iconInput);
+
+    const kind = document.createElement('div');
+    const kindSel = document.createElement('select');
+    kindSel.innerHTML = `<option value="check">Check</option><option value="count">Count</option>`;
+    kindSel.value = h.kind;
+    kindSel.onchange = async ()=>{ h.kind = kindSel.value; await idbPut('habits', h); renderAll(); };
+    kind.appendChild(kindSel);
+
+    const req = document.createElement('div');
+    const reqSel = document.createElement('select');
+    reqSel.innerHTML = `<option value="false">Optional</option><option value="true">Required</option>`;
+    reqSel.value = String(!!h.required);
+    reqSel.onchange = async ()=>{ h.required = (reqSel.value === 'true'); await idbPut('habits', h); renderAll(); };
+    req.appendChild(reqSel);
+
+    const actions = document.createElement('div');
+    actions.className = 'miniBtns';
+    const del = document.createElement('button');
+    del.className = 'btn danger';
+    del.textContent = 'Delete';
+    del.onclick = async ()=>{
+      if(!confirm(`Delete "${h.name}"? This does not delete old logs, but they will be ignored.`)) return;
+      await idbDel('habits', h.id);
+    
+  // theme
+  const savedTheme = await idbGet('meta','theme');
+  if(savedTheme === 'light' || savedTheme === 'dark'){
+    document.body.dataset.theme = savedTheme === 'light' ? 'light' : 'dark';
+  } else {
+    document.body.dataset.theme = 'dark';
+  }
+
+  await refreshHabits();
+      renderManage();
+      renderAll();
+    };
+    actions.appendChild(del);
+
+    row.appendChild(ic);
+    row.appendChild(name);
+    row.appendChild(kind);
+    row.appendChild(req);
+    row.appendChild(actions);
+
+    box.appendChild(row);
+  }
+}
+
+/* ---------- Stats + Chart ---------- */
+function getRangeDates(){
+  const today = startOfDay(new Date());
+  const end = today; // inclusive end is today
+  if(rangeDays === 0){
+    // all time: go back 365 days for chart readability (still compute all-time totals by scanning logs)
+    const start = addDays(end, -364);
+    return {start, end, days:365, allTime:true};
+  }
+  const start = addDays(end, -(rangeDays-1));
+  return {start, end, days: rangeDays, allTime:false};
+}
+
+async function collectForDate(dateISO){
+  const out = {};
+  for(const h of habits){
+    out[h.id] = await getLog(dateISO, h.id);
+  }
+  return out;
+}
+
+async function updateStatsAndChart(){
+  const {start, end, days, allTime} = getRangeDates();
+  const dates = [];
+  for(let i=0;i<days;i++){
+    const d = addDays(start, i);
+    dates.push(toISODate(d));
+  }
+
+  const requiredHabits = habits.filter(h=>h.kind==='check' && h.required);
+  const countHabits = habits.filter(h=>h.kind==='count');
+
+  // required completion by day
+  const dailyCompletion = [];
+  let streak = 0;
+  for(let i=0;i<dates.length;i++){
+    const iso = dates[i];
+    let done = 0;
+    for(const h of requiredHabits){
+      const v = await getLog(iso, h.id);
+      if(v) done++;
+    }
+    const pct = requiredHabits.length ? (done / requiredHabits.length) : 1;
+    dailyCompletion.push(pct);
+
+    // streak counts backwards from today
+  }
+  // streak from today backwards (required only)
+  const todayISO = toISODate(startOfDay(new Date()));
+  if(requiredHabits.length){
+    let s = 0;
+    for(let back=0; back<10000; back++){
+      const d = addDays(startOfDay(new Date()), -back);
+      const iso = toISODate(d);
+      let ok = true;
+      for(const h of requiredHabits){
+        const v = await getLog(iso, h.id);
+        if(!v){ ok=false; break; }
+      }
+      if(ok) s++; else break;
+    }
+    streak = s;
+  }
+
+  // overall required completion across range
+  let avg = 0;
+  if(dailyCompletion.length){
+    avg = dailyCompletion.reduce((a,b)=>a+b,0)/dailyCompletion.length;
+  }
+
+  // count totals across range (or all time via scanning logs store)
+  let countTotal = 0;
+  if(allTime){
+    const allLogs = await idbAll('logs');
+    const countIds = new Set(countHabits.map(h=>h.id));
+    for(const l of allLogs){
+      if(countIds.has(l.habitId)) countTotal += (l.v || 0);
+    }
+  } else {
+    for(const iso of dates){
+      for(const h of countHabits){
+        countTotal += (await getLog(iso, h.id)) || 0;
+      }
+    }
+  }
+
+  // KPIs
+  $$('#kpiCompletion').textContent = `${Math.round(avg*100)}%`;
+  $$('#kpiStreak').textContent = `${streak}d`;
+  $$('#kpiCounts').textContent = `${countTotal}`;
+
+  // Chart: daily completion line + daily count bars (summed)
+  const dailyCounts = [];
+  for(const iso of dates){
+    let sum = 0;
+    for(const h of countHabits){
+      sum += (await getLog(iso, h.id)) || 0;
+    }
+    dailyCounts.push(sum);
+  }
+
+  drawChart($$('#chart'), dates.map(s=>fmtShort(fromISODate(s))), dailyCompletion.map(x=>Math.round(x*100)), dailyCounts);
+  const label = allTime ? 'All-time totals (chart shows last 365 days for readability)' : `Range: last ${rangeDays} days`;
+  $$('#chartCaption').textContent = `${label}. Line: required completion %. Bars: total count actions/day.`;
+}
+
+/* ---------- Tiny chart renderer (no libraries) ---------- */
+function drawChart(canvas, labels, lineVals, barVals){
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width = canvas.clientWidth * devicePixelRatio;
+  const h = canvas.height = canvas.clientHeight * devicePixelRatio;
+  ctx.clearRect(0,0,w,h);
+
+  const padL = 44*devicePixelRatio, padR = 16*devicePixelRatio, padT = 14*devicePixelRatio, padB = 34*devicePixelRatio;
+  const plotW = w - padL - padR;
+  const plotH = h - padT - padB;
+
+  // ranges
+  const maxBar = Math.max(1, ...barVals);
+  const minLine = 0, maxLine = 100;
+
+  // grid
+  ctx.globalAlpha = 1;
+  ctx.strokeStyle = 'rgba(255,255,255,.10)';
+  ctx.lineWidth = 1*devicePixelRatio;
+
+  const gridY = 4;
+  for(let i=0;i<=gridY;i++){
+    const y = padT + (plotH * i / gridY);
+    ctx.beginPath();
+    ctx.moveTo(padL, y);
+    ctx.lineTo(w-padR, y);
+    ctx.stroke();
+
+    const val = Math.round(maxLine - (maxLine-minLine)*i/gridY);
+    ctx.fillStyle = 'rgba(167,167,179,.9)';
+    ctx.font = `${11*devicePixelRatio}px ui-sans-serif`;
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(String(val), padL - 8*devicePixelRatio, y);
+  }
+
+  // x scale
+  const n = labels.length;
+  const step = plotW / Math.max(1,(n-1));
+  const xAt = (i)=> padL + step*i;
+
+  // bars
+  const barW = Math.max(2*devicePixelRatio, step*0.55);
+  ctx.fillStyle = 'rgba(91,140,255,.45)';
+  for(let i=0;i<n;i++){
+    const bv = barVals[i] || 0;
+    const bh = (bv / maxBar) * plotH;
+    const x = xAt(i) - barW/2;
+    const y = padT + (plotH - bh);
+    ctx.fillRect(x, y, barW, bh);
+  }
+
+  // line
+  ctx.strokeStyle = 'rgba(37,211,102,.95)';
+  ctx.lineWidth = 2.5*devicePixelRatio;
+  ctx.beginPath();
+  for(let i=0;i<n;i++){
+    const lv = lineVals[i] ?? 0;
+    const x = xAt(i);
+    const y = padT + (plotH - (lv/maxLine)*plotH);
+    if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+  }
+  ctx.stroke();
+
+  // dots
+  ctx.fillStyle = 'rgba(37,211,102,.95)';
+  for(let i=0;i<n;i++){
+    const lv = lineVals[i] ?? 0;
+    const x = xAt(i);
+    const y = padT + (plotH - (lv/maxLine)*plotH);
+    ctx.beginPath();
+    ctx.arc(x,y, 3*devicePixelRatio, 0, Math.PI*2);
+    ctx.fill();
+  }
+
+  // x labels (sparse)
+  ctx.fillStyle = 'rgba(167,167,179,.9)';
+  ctx.font = `${11*devicePixelRatio}px ui-sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  const every = n<=10 ? 1 : (n<=30 ? 3 : 7);
+  for(let i=0;i<n;i+=every){
+    ctx.fillText(labels[i], xAt(i), padT + plotH + 10*devicePixelRatio);
+  }
+}
+
+/* ---------- Backup ---------- */
+async function exportBackup(){
+  const payload = {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    habits: await idbAll('habits'),
+    logs: await idbAll('logs'),
+    meta: {
+      rangeDays: await idbGet('meta','rangeDays') ?? 7
+    }
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `habits-backup-${toISODate(new Date())}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  $$('#backupStatus').textContent = 'Exported backup file. Save it in Files → iCloud Drive (recommended).';
+}
+
+async function importBackup(e){
+  const file = e.target.files?.[0];
+  if(!file) return;
+  try{
+    const text = await file.text();
+    const data = JSON.parse(text);
+    if(!data || !Array.isArray(data.habits) || !Array.isArray(data.logs)) throw new Error('Invalid backup format.');
+
+    if(!confirm('Import will replace current habits and logs on this device. Continue?')) return;
+
+    // wipe
+    const allH = await idbAll('habits');
+    for(const h of allH) await idbDel('habits', h.id);
+    const allL = await idbAll('logs');
+    for(const l of allL) await idbDel('logs', l.key);
+
+    // restore
+    for(const h of data.habits) await idbPut('habits', h);
+    for(const l of data.logs) await idbPut('logs', l);
+    if(data.meta && typeof data.meta.rangeDays === 'number') await idbPut('meta','rangeDays', data.meta.rangeDays);
+
+    $$('#backupStatus').textContent = 'Imported successfully. Reloading…';
+    setTimeout(()=>location.reload(), 600);
+  } catch(err){
+    $$('#backupStatus').textContent = 'Import failed: ' + err.message;
+  } finally {
+    e.target.value = '';
+  }
+}
+
+/* ---------- PWA Service Worker (offline caching) ---------- */
+async function registerSW(){
+  if(!('serviceWorker' in navigator)) return;
+  try{
+    await navigator.serviceWorker.register('./sw.js');
+  }catch(e){
+    // ignore
+  }
+}
+</script>
+
+</body>
+</html>
