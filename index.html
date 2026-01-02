@@ -91,6 +91,7 @@
     @keyframes waveMove{
       from{ background-position-x: 0; }
       to{ background-position-x: 900px; }
+      
     }
 
 header{
@@ -236,6 +237,18 @@ header{
       padding: 10px 12px;
       box-shadow: var(--shadow);
     }
+
+    body::before,
+body::after,
+.wave,
+.waves,
+.background {
+  pointer-events: none !important;
+}
+    .bg,
+.ocean {
+  pointer-events: none;
+}
   </style>
 </head>
 <body>
