@@ -228,6 +228,14 @@ header{
     .miniBtns{ display:flex; gap:10px; flex-wrap:wrap; }
     .note{ padding:10px 12px; border-radius: 14px; border:1px dashed rgba(255,255,255,.14); color: var(--muted); background: var(--glass); }
     a{ color: var(--accent); text-decoration:none; }
+    .bannerCard{
+      background: rgba(251, 191, 36, .12);
+      border:1px solid rgba(251,191,36,.35);
+      color: var(--text);
+      border-radius: 14px;
+      padding: 10px 12px;
+      box-shadow: var(--shadow);
+    }
   </style>
 </head>
 <body>
@@ -243,6 +251,7 @@ header{
     </div>
   </div>
 </header>
+<div class="wrap" id="banner" style="display:none"></div>
 
 <main class="wrap">
   <div class="grid cols2">
@@ -425,6 +434,18 @@ const DB_NAME = 'habit_pwa_db_v1';
 const DB_VER  = 1;
 let db;
 
+// Storage mode: 'idb' (default) or 'ls' fallback
+let STORAGE_MODE = 'idb';
+const LS_KEY = 'habit_pwa_backup_v1';
+
+function showBanner(msg){
+  const b = document.getElementById('banner');
+  if(!b) return;
+  b.style.display = 'block';
+  b.innerHTML = `<div class="bannerCard"><b>Notice:</b> ${msg}</div>`;
+}
+
+
 function idbOpen(){
   return new Promise((resolve, reject)=>{
     const req = indexedDB.open(DB_NAME, DB_VER);
@@ -440,7 +461,26 @@ function idbOpen(){
 }
 function tx(store, mode='readonly'){ return db.transaction(store, mode).objectStore(store); }
 
+function lsLoad(){
+  try{
+    const raw = localStorage.getItem(LS_KEY);
+    return raw ? JSON.parse(raw) : {meta:{}, habits:[], logs:[]};
+  } catch(e){
+    return {meta:{}, habits:[], logs:[]};
+  }
+}
+function lsSave(data){
+  localStorage.setItem(LS_KEY, JSON.stringify(data));
+}
+
 function idbGet(store, key){
+  if(STORAGE_MODE === 'ls'){
+    const data = lsLoad();
+    if(store === 'meta') return Promise.resolve((data.meta||{})[key]);
+    if(store === 'habits') return Promise.resolve((data.habits||[]).find(h=>h.id===key));
+    if(store === 'logs') return Promise.resolve((data.logs||[]).find(l=>l.key===key));
+    return Promise.resolve(undefined);
+  }
   return new Promise((resolve, reject)=>{
     const req = tx(store).get(key);
     req.onsuccess = ()=>resolve(req.result);
@@ -448,6 +488,35 @@ function idbGet(store, key){
   });
 }
 function idbPut(store, val){
+  if(STORAGE_MODE === 'ls'){
+    const data = lsLoad();
+    if(store === 'meta'){
+      const key = arguments[1];
+      const value = arguments[2];
+      if(arguments.length === 3){
+        data.meta = data.meta || {};
+        data.meta[key] = value;
+        lsSave(data);
+        return Promise.resolve(true);
+      }
+      return Promise.resolve(true);
+    }
+    if(store === 'habits'){
+      data.habits = data.habits || [];
+      const i = data.habits.findIndex(h=>h.id===val.id);
+      if(i>=0) data.habits[i]=val; else data.habits.push(val);
+      lsSave(data);
+      return Promise.resolve(true);
+    }
+    if(store === 'logs'){
+      data.logs = data.logs || [];
+      const i = data.logs.findIndex(l=>l.key===val.key);
+      if(i>=0) data.logs[i]=val; else data.logs.push(val);
+      lsSave(data);
+      return Promise.resolve(true);
+    }
+    return Promise.resolve(true);
+  }
   return new Promise((resolve, reject)=>{
     const req = tx(store,'readwrite').put(val);
     req.onsuccess = ()=>resolve(true);
@@ -455,6 +524,23 @@ function idbPut(store, val){
   });
 }
 function idbDel(store, key){
+  if(STORAGE_MODE === 'ls'){
+    const data = lsLoad();
+    if(store === 'habits'){
+      data.habits = (data.habits||[]).filter(h=>h.id!==key);
+      lsSave(data); return Promise.resolve(true);
+    }
+    if(store === 'logs'){
+      data.logs = (data.logs||[]).filter(l=>l.key!==key);
+      lsSave(data); return Promise.resolve(true);
+    }
+    if(store === 'meta'){
+      data.meta = data.meta || {};
+      delete data.meta[key];
+      lsSave(data); return Promise.resolve(true);
+    }
+    return Promise.resolve(true);
+  }
   return new Promise((resolve, reject)=>{
     const req = tx(store,'readwrite').delete(key);
     req.onsuccess = ()=>resolve(true);
@@ -462,6 +548,13 @@ function idbDel(store, key){
   });
 }
 function idbAll(store){
+  if(STORAGE_MODE === 'ls'){
+    const data = lsLoad();
+    if(store === 'habits') return Promise.resolve(data.habits || []);
+    if(store === 'logs') return Promise.resolve(data.logs || []);
+    if(store === 'meta') return Promise.resolve(Object.entries(data.meta||{}));
+    return Promise.resolve([]);
+  }
   return new Promise((resolve, reject)=>{
     const req = tx(store).getAll();
     req.onsuccess = ()=>resolve(req.result || []);
@@ -513,7 +606,13 @@ function logKey(dateISO, habitId){ return `${dateISO}|${habitId}`; }
 
 /* ---------- Boot ---------- */
 (async function init(){
-  db = await idbOpen();
+  try{
+    db = await idbOpen();
+    STORAGE_MODE = 'idb';
+  } catch(e){
+    STORAGE_MODE = 'ls';
+    showBanner('Local database is not available in this browser mode. The app will use a simpler local storage mode. If buttons still don\'t work, open the site in Safari (not in private mode) and refresh.');
+  }
 
   // first run: seed habits
   const seeded = await idbGet('meta','seeded');
