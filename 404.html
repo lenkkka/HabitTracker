@@ -1,0 +1,21 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Redirecting…</title>
+    <script>
+      // GitHub Pages doesn't support SPA routes like /HabitTracker/calendar.
+      // Redirect to hash-based route so React Router can handle it.
+      (function () {
+        var repo = "/HabitTracker";
+        var path = location.pathname;
+        if (path.indexOf(repo) === 0) path = path.slice(repo.length);
+        if (!path.startsWith("/")) path = "/" + path;
+        var target = repo + "/#" + path + location.search;
+        location.replace(target);
+      })();
+    </script>
+  </head>
+  <body></body>
+</html>
