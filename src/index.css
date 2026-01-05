@@ -53,3 +53,57 @@ a{ color: inherit; }
 @supports (padding: max(0px)) {
   body { padding-top: env(safe-area-inset-top); }
 }
+
+
+
+/* Ocean waves (animated, layered) */
+.ocean-waves .wave{
+  position: absolute;
+  left: 0;
+  width: 200%;
+  height: 320px;
+  will-change: transform;
+}
+
+.ocean-waves .wave path{
+  fill: rgba(53,197,255,1);
+}
+
+.ocean-waves .wave-top{ top: -46px; }
+.ocean-waves .wave-bottom{ bottom: -40px; }
+
+@keyframes waveScroll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+.ocean-waves .wave-a{
+  opacity: .18;
+  animation: waveScroll 52s linear infinite;
+  filter: blur(.2px);
+}
+
+.ocean-waves .wave-b{
+  opacity: .12;
+  animation: waveScroll 78s linear infinite;
+  transform: translateX(-10%);
+  filter: blur(.35px);
+}
+
+.ocean-waves .wave-c{
+  opacity: .22;
+  animation: waveScroll 64s linear infinite reverse;
+  filter: blur(.15px);
+}
+
+.ocean-waves .wave-d{
+  opacity: .14;
+  animation: waveScroll 96s linear infinite reverse;
+  transform: translateX(-8%);
+  filter: blur(.35px);
+}
+
+/* Color accents per layer */
+.ocean-waves .wave-b path{ fill: rgba(46,212,255,1); }
+.ocean-waves .wave-c path{ fill: rgba(26,123,255,1); }
+.ocean-waves .wave-d path{ fill: rgba(109,93,254,1); }

@@ -1,49 +1,115 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { getLog, setLog } from "../storage/db";
+import DayDetailModal from "../components/DayDetailModal";
 
-function iso(d) {
-  const x = new Date(d);
-  x.setHours(0, 0, 0, 0);
-  const y = x.getFullYear();
-  const m = String(x.getMonth() + 1).padStart(2, "0");
-  const day = String(x.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
+function shift(iso, days) {
+  const d = new Date(iso);
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
 }
-function shift(dateISO, deltaDays) {
-  const d = new Date(dateISO);
-  d.setDate(d.getDate() + deltaDays);
-  return iso(d);
+
+function clamp01(x) {
+  return Math.max(0, Math.min(1, x));
+}
+
+function mixHex(a, b, t) {
+  const pa = String(a || "").replace("#", "");
+  const pb = String(b || "").replace("#", "");
+  if (pa.length !== 6 || pb.length !== 6) return a;
+  const ar = parseInt(pa.slice(0, 2), 16),
+    ag = parseInt(pa.slice(2, 4), 16),
+    ab = parseInt(pa.slice(4, 6), 16);
+  const br = parseInt(pb.slice(0, 2), 16),
+    bg = parseInt(pb.slice(2, 4), 16),
+    bb = parseInt(pb.slice(4, 6), 16);
+  const tt = clamp01(t);
+  const r = Math.round(ar + (br - ar) * tt);
+  const g = Math.round(ag + (bg - ag) * tt);
+  const b2 = Math.round(ab + (bb - ab) * tt);
+  const toHex = (n) => n.toString(16).padStart(2, "0");
+  return `#${toHex(r)}${toHex(g)}${toHex(b2)}`;
+}
+
+function habitGradient(color) {
+  const c1 = color || "#35c5ff";
+  const c2 = mixHex(c1, "#1a7bff", 0.45);
+  return `linear-gradient(135deg, ${c1}, ${c2})`;
 }
 
 export default function TrackerPage({ dateISO, setDateISO, habits }) {
-  const [refreshKey, setRefreshKey] = useState(0);
-  const bump = () => setRefreshKey((x) => x + 1);
+  const [bump, setBump] = useState(0);
+
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailTitle, setDetailTitle] = useState("Day details");
+  const [detailHabits, setDetailHabits] = useState([]);
+
+  const prettyDate = new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(new Date(`${dateISO}T00:00:00`));
+
+  function openSummary(kind) {
+    if (kind === "required") {
+      setDetailTitle("Required habits");
+      setDetailHabits(habits.filter((h) => h.required));
+    } else if (kind === "optional") {
+      setDetailTitle("Optional habits");
+      setDetailHabits(habits.filter((h) => !h.required));
+    } else {
+      setDetailTitle("Count habits");
+      setDetailHabits(habits.filter((h) => h.kind === "count"));
+    }
+    setDetailOpen(true);
+  }
 
   return (
     <div style={gridWrap}>
+      {/* Summary widget */}
+      <div style={card}>
+        <TodaySummary
+          habits={habits}
+          dateISO={dateISO}
+          bump={bump}
+          onOpen={openSummary}
+        />
+      </div>
+
+      {/* Main tracker card */}
       <div style={card}>
         <div style={topBar}>
           <div style={row1}>
-            <button onClick={() => setDateISO(shift(dateISO, -1))} type="button">
+            <button
+              onClick={() => setDateISO(shift(dateISO, -1))}
+              type="button"
+              style={navBtn}
+              aria-label="Previous day"
+            >
               ‹
             </button>
 
-            <div style={dateTap}>
-              <div style={{ fontWeight: 900 }}>{dateISO}</div>
+            {/* Date pill (tap opens native date picker) */}
+            <div style={datePill} aria-label="Choose date">
+              <div style={{ pointerEvents: "none" }}>{prettyDate}</div>
+
+              {/* Invisible native date input on top */}
+              <input
+                type="date"
+                value={dateISO}
+                onChange={(e) => setDateISO(e.target.value)}
+                aria-label="Pick date"
+                style={dateOverlayInput}
+              />
             </div>
 
-            <button onClick={() => setDateISO(shift(dateISO, 1))} type="button">
+            <button
+              onClick={() => setDateISO(shift(dateISO, 1))}
+              type="button"
+              style={navBtn}
+              aria-label="Next day"
+            >
               ›
             </button>
-          </div>
-
-          <div style={row2}>
-            <input
-              type="date"
-              value={dateISO}
-              onChange={(e) => setDateISO(e.target.value)}
-              style={{ width: "100%" }}
-            />
           </div>
         </div>
 
@@ -55,21 +121,26 @@ export default function TrackerPage({ dateISO, setDateISO, habits }) {
               key={h.id}
               habit={h}
               dateISO={dateISO}
-              refreshKey={refreshKey}
-              onChanged={bump}
+              onChanged={() => setBump((x) => x + 1)}
             />
           ))}
         </div>
       </div>
 
-      <div style={{ height: 14 }} />
-
-      <TodaySummary habits={habits} dateISO={dateISO} refreshKey={refreshKey} />
+      {/* Drill-down modal (same as calendar) */}
+      <DayDetailModal
+        open={detailOpen}
+        title={detailTitle}
+        dateISO={dateISO}
+        habits={detailHabits}
+        onClose={() => setDetailOpen(false)}
+        onChanged={() => setBump((x) => x + 1)}
+      />
     </div>
   );
 }
 
-function HabitRow({ habit, dateISO, refreshKey, onChanged }) {
+function HabitRow({ habit, dateISO, onChanged }) {
   const [val, setVal] = useState(null);
 
   useEffect(() => {
@@ -77,7 +148,7 @@ function HabitRow({ habit, dateISO, refreshKey, onChanged }) {
       const v = await getLog(dateISO, habit.id);
       setVal(v ?? (habit.kind === "count" ? 0 : false));
     })();
-  }, [dateISO, habit.id, habit.kind, refreshKey]);
+  }, [dateISO, habit.id, habit.kind]);
 
   async function toggle() {
     const next = !val;
@@ -97,35 +168,71 @@ function HabitRow({ habit, dateISO, refreshKey, onChanged }) {
 
   return (
     <div style={{ ...row, borderLeft: `5px solid ${color}` }}>
-      <div style={{ display: "grid", gap: 2 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ fontSize: 20, width: 28, textAlign: "center" }}>
-            {habit.icon || "✅"}
-          </div>
-          <div>
-            <div style={{ fontWeight: 950, fontSize: 18 }}>{habit.name}</div>
-            <div style={{ opacity: 0.65, fontSize: 12 }}>
-              {habit.required ? "Required" : "Optional"} · {habit.kind}
-            </div>
-          </div>
+      <div style={{ fontSize: 18, width: 28, textAlign: "center" }}>
+        {habit.icon || "•"}
+      </div>
+
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontWeight: 800 }}>{habit.name}</div>
+        <div style={{ opacity: 0.65, fontSize: 12 }}>
+          {habit.kind === "check"
+            ? habit.required
+              ? "Required • check"
+              : "Optional • check"
+            : habit.required
+              ? `Required • count${habit.minCount ? ` • min ${habit.minCount}` : ""}`
+              : "Optional • count"}
         </div>
       </div>
 
       <div style={{ marginLeft: "auto" }} />
 
       {habit.kind === "check" ? (
-        <button onClick={toggle} type="button" style={habitBtn(val ? color : null)}>
+        <button
+          onClick={toggle}
+          type="button"
+          style={habitBtn(val ? color : null)}
+          aria-label="Toggle"
+        >
           {val ? "✓" : ""}
         </button>
       ) : (
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <button onClick={() => inc(-1)} type="button">
+          <button onClick={() => inc(-1)} type="button" aria-label="Decrease">
             -
           </button>
-          <div style={{ width: 30, textAlign: "center", fontWeight: 900 }}>
-            {val ?? 0}
-          </div>
-          <button onClick={() => inc(1)} type="button">
+
+          <input
+            type="number"
+            inputMode="numeric"
+            value={val ?? ""}
+            placeholder="0"
+            onFocus={(e) => e.target.select()}
+            onClick={(e) => e.target.select()}
+            onChange={(e) => {
+              const raw = e.target.value;
+              if (raw === "") {
+                setVal(null);
+                return;
+              }
+              const n = Number(raw);
+              if (Number.isFinite(n)) setVal(Math.max(0, Math.floor(n)));
+            }}
+            onBlur={async () => {
+              const n = Number(val ?? 0);
+              const next = Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0;
+              setVal(next);
+              await setLog(dateISO, habit.id, next);
+              onChanged && onChanged();
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") e.currentTarget.blur();
+            }}
+            style={countInput}
+            aria-label="Count"
+          />
+
+          <button onClick={() => inc(1)} type="button" aria-label="Increase">
             +
           </button>
         </div>
@@ -134,18 +241,39 @@ function HabitRow({ habit, dateISO, refreshKey, onChanged }) {
   );
 }
 
-function TodaySummary({ habits, dateISO, refreshKey }) {
-  const [summary, setSummary] = useState({ reqPct: 0, countTotal: 0 });
+function TodaySummary({ habits, dateISO, bump, onOpen }) {
+  const [summary, setSummary] = useState({
+    reqPct: 0,
+    optPct: 0,
+    countTotal: 0,
+  });
 
   useEffect(() => {
     (async () => {
-      const req = habits.filter((h) => h.kind === "check" && h.required);
-      let done = 0;
+      const req = habits.filter((h) => h.required);
+      let reqDone = 0;
       for (const h of req) {
         const v = await getLog(dateISO, h.id);
-        if (v) done++;
+        if (h.kind === "check") {
+          if (v) reqDone++;
+        } else if (h.kind === "count") {
+          const min = Math.max(1, Number(h.minCount ?? 1));
+          if ((v || 0) >= min) reqDone++;
+        }
       }
-      const reqPct = req.length ? Math.round((done / req.length) * 100) : 100;
+      const reqPct = req.length ? Math.round((reqDone / req.length) * 100) : 100;
+
+      const opt = habits.filter((h) => !h.required);
+      let optDone = 0;
+      for (const h of opt) {
+        const v = await getLog(dateISO, h.id);
+        if (h.kind === "check") {
+          if (v) optDone++;
+        } else if (h.kind === "count") {
+          if ((v || 0) > 0) optDone++;
+        }
+      }
+      const optPct = opt.length ? Math.round((optDone / opt.length) * 100) : 100;
 
       const counts = habits.filter((h) => h.kind === "count");
       let countTotal = 0;
@@ -153,90 +281,177 @@ function TodaySummary({ habits, dateISO, refreshKey }) {
         countTotal += (await getLog(dateISO, h.id)) || 0;
       }
 
-      setSummary({ reqPct, countTotal });
+      setSummary({ reqPct, optPct, countTotal });
     })();
-  }, [habits, dateISO, refreshKey]);
+  }, [habits, dateISO, bump]);
 
   return (
-    <div style={{ display: "grid", gap: 10 }}>
-      <div style={kpi}>
-        <div style={{ fontWeight: 950, fontSize: 40 }}>{summary.reqPct}%</div>
-        <div style={{ opacity: 0.65, fontSize: 12 }}>Required completion today</div>
-      </div>
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "1fr 1px 1fr 1px 1fr",
+        alignItems: "center",
+        gap: 0,
+      }}
+    >
+      <button
+        type="button"
+        style={kpiColBtn}
+        onClick={() => onOpen?.("required")}
+        aria-label="Show required habits"
+      >
+        <div style={kpiValue}>{summary.reqPct}%</div>
+        <div style={kpiLabel}>Required</div>
+      </button>
 
-      <div style={kpi}>
-        <div style={{ fontWeight: 950, fontSize: 40 }}>{summary.countTotal}</div>
-        <div style={{ opacity: 0.65, fontSize: 12 }}>Total count actions</div>
-      </div>
+      <div style={kpiDivider} />
+
+      <button
+        type="button"
+        style={kpiColBtn}
+        onClick={() => onOpen?.("optional")}
+        aria-label="Show optional habits"
+      >
+        <div style={kpiValue}>{summary.optPct}%</div>
+        <div style={kpiLabel}>Optional</div>
+      </button>
+
+      <div style={kpiDivider} />
+
+      <button
+        type="button"
+        style={kpiColBtn}
+        onClick={() => onOpen?.("count")}
+        aria-label="Show count habits"
+      >
+        <div style={kpiValue}>{summary.countTotal}</div>
+        <div style={kpiLabel}>Count total</div>
+      </button>
     </div>
   );
 }
-
-const topBar = { display: "grid", gap: 10 };
-const row1 = {
-  display: "grid",
-  gridTemplateColumns: "44px 1fr 44px",
-  alignItems: "center",
-  gap: 10,
-};
-const row2 = { display: "grid", gap: 10 };
-
-const dateTap = {
-  minWidth: 0,
-  width: "100%",
-  textAlign: "center",
-  padding: "10px 12px",
-  borderRadius: 14,
-  background: "rgba(255,255,255,.06)",
-  border: "1px solid rgba(255,255,255,.12)",
-};
 
 const gridWrap = { display: "grid", gap: 14 };
 
 const card = {
   padding: 14,
+  borderRadius: 18,
   border: "1px solid rgba(255,255,255,.12)",
-  borderRadius: 16,
-  background: "rgba(255,255,255,.04)",
-  boxShadow: "0 25px 70px rgba(0,0,0,.25)",
+  background: "rgba(255,255,255,.06)",
+  boxShadow: "0 22px 60px rgba(0,0,0,.25)",
+  backdropFilter: "blur(10px)",
 };
 
-const row = {
-  padding: 12,
-  border: "1px solid rgba(255,255,255,.10)",
-  borderRadius: 16,
-  background: "rgba(0,0,0,.12)",
-  display: "flex",
+const topBar = { display: "grid", gap: 10 };
+
+const row1 = {
+  display: "grid",
+  gridTemplateColumns: "44px 1fr 44px",
   alignItems: "center",
   gap: 12,
 };
 
-const kpi = {
-  padding: 14,
-  border: "1px solid rgba(255,255,255,.10)",
-  borderRadius: 16,
-  background: "rgba(0,0,0,.12)",
+const navBtn = {
+  width: 44,
+  height: 44,
+  borderRadius: 14,
+  border: "1px solid rgba(255,255,255,.12)",
+  background: "rgba(255,255,255,.06)",
+  color: "rgba(234,246,255,.92)",
+  fontWeight: 950,
+  fontSize: 22,
+  lineHeight: 1,
+  display: "grid",
+  placeItems: "center",
 };
 
-function habitBtn(activeColor) {
-  const base = {
-    width: 52,
-    height: 52,
-    borderRadius: 999,
-    display: "grid",
-    placeItems: "center",
-    fontSize: 22,
-    fontWeight: 950,
-    border: "1px solid rgba(255,255,255,.12)",
-    background: "rgba(255,255,255,.06)",
-  };
+const datePill = {
+  position: "relative",
+  width: "100%",
+  height: 44,
+  textAlign: "center",
+  borderRadius: 14,
+  border: "1px solid rgba(255,255,255,.12)",
+  background: "rgba(255,255,255,.04)",
+  fontWeight: 900,
+  whiteSpace: "nowrap",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  display: "grid",
+  placeItems: "center",
+};
 
-  if (!activeColor) return base;
+const dateOverlayInput = {
+  position: "absolute",
+  inset: 0,
+  width: "100%",
+  height: "100%",
+  opacity: 0,
+  border: "none",
+  background: "transparent",
+  color: "transparent",
+  cursor: "pointer",
+};
 
-  return {
-    ...base,
-    border: `1px solid rgba(255,255,255,.10)`,
-    background: `linear-gradient(135deg, rgba(255,255,255,.10), ${activeColor}55)`,
-    boxShadow: `0 10px 30px ${activeColor}22`,
-  };
-}
+const row = {
+  display: "flex",
+  alignItems: "center",
+  gap: 12,
+  padding: "10px 12px",
+  borderRadius: 16,
+  border: "1px solid rgba(255,255,255,.10)",
+  background: "rgba(255,255,255,.04)",
+};
+
+const habitBtn = (activeColorOrNull) => ({
+  width: 54,
+  height: 54,
+  borderRadius: 999,
+  border: "1px solid rgba(255,255,255,.14)",
+  background: activeColorOrNull
+    ? habitGradient(activeColorOrNull)
+    : "rgba(255,255,255,.06)",
+  color: activeColorOrNull ? "#001018" : "rgba(234,246,255,.92)",
+  fontWeight: 950,
+  fontSize: 22,
+  display: "grid",
+  placeItems: "center",
+});
+
+const countInput = {
+  width: 56,
+  height: 36,
+  borderRadius: 12,
+  border: "1px solid rgba(255,255,255,.16)",
+  background: "rgba(255,255,255,.06)",
+  color: "rgba(234,246,255,.92)",
+  fontWeight: 900,
+  textAlign: "center",
+  outline: "none",
+};
+
+const kpiColBtn = {
+  padding: 14,
+  display: "grid",
+  justifyItems: "center",
+  textAlign: "center",
+  background: "transparent",
+  border: "1px solid transparent",
+  borderRadius: 16,
+  color: "inherit",
+  cursor: "pointer",
+};
+
+const kpiValue = { fontSize: 22, fontWeight: 950 };
+const kpiLabel = {
+  opacity: 0.65,
+  fontSize: 12,
+  fontWeight: 800,
+  letterSpacing: 0.2,
+};
+
+const kpiDivider = {
+  width: 1,
+  alignSelf: "stretch",
+  background: "rgba(255,255,255,.12)",
+};

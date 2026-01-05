@@ -1,6 +1,30 @@
 import { useEffect, useState } from "react";
 import { getLog, setLog } from "../storage/db";
 
+
+
+function clamp01(x){ return Math.max(0, Math.min(1, x)); }
+
+function mixHex(a, b, t){
+  const pa = String(a || "").replace("#","");
+  const pb = String(b || "").replace("#","");
+  if (pa.length !== 6 || pb.length !== 6) return a;
+  const ar = parseInt(pa.slice(0,2),16), ag=parseInt(pa.slice(2,4),16), ab=parseInt(pa.slice(4,6),16);
+  const br = parseInt(pb.slice(0,2),16), bg=parseInt(pb.slice(2,4),16), bb=parseInt(pb.slice(4,6),16);
+  const tt = clamp01(t);
+  const r = Math.round(ar + (br-ar)*tt);
+  const g = Math.round(ag + (bg-ag)*tt);
+  const b2 = Math.round(ab + (bb-ab)*tt);
+  const toHex = (n)=>n.toString(16).padStart(2,"0");
+  return `#${toHex(r)}${toHex(g)}${toHex(b2)}`;
+}
+
+function habitGradient(color){
+  const c1 = color || "#35c5ff";
+  const c2 = mixHex(c1, "#1a7bff", 0.45);
+  return `linear-gradient(135deg, ${c1}, ${c2})`;
+}
+
 export default function DayDetailModal({ open, dateISO, habits, onClose, onChanged }) {
   const [vals, setVals] = useState({});
 
@@ -53,7 +77,7 @@ export default function DayDetailModal({ open, dateISO, habits, onClose, onChang
             const done = h.kind === "check" ? !!v : (v || 0) > 0;
 
             return (
-              <div key={h.id} style={{ ...row, borderLeft: `5px solid ${h.color || "#35c5ff"}` }}>
+              <div key={h.id} style={{ ...row, borderLeft: `5px solid ${h.color || "#35c5ff"}`, background: "rgba(255,255,255,.04)" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <div style={{ opacity: 0.8, fontSize: 18 }}>•</div>
                   <div style={{ display: "grid" }}>
@@ -75,7 +99,7 @@ export default function DayDetailModal({ open, dateISO, habits, onClose, onChang
                     onClick={() => toggle(h)}
                     style={{
                       ...checkBtn,
-                      background: done ? "rgba(53,197,255,.18)" : "rgba(255,255,255,.06)",
+                      background: done ? habitGradient(h.color || "#35c5ff") : "rgba(255,255,255,.06)",
                       color: done ? "#eaf6ff" : "rgba(234,246,255,.55)",
                       borderColor: done ? "rgba(53,197,255,.28)" : "rgba(255,255,255,.18)",
                     }}
@@ -126,12 +150,17 @@ const head = { display: "flex", alignItems: "center", justifyContent: "space-bet
 const closeBtn = {
   width: 44,
   height: 44,
-  borderRadius: 14,
+  borderRadius: 16,
   border: "1px solid rgba(255,255,255,.16)",
   background: "rgba(255,255,255,.06)",
+  display: "grid",
+  placeItems: "center",
   fontSize: 22,
-  lineHeight: "44px",
+  fontWeight: 900,
+  lineHeight: 1,
+  padding: 0,
 };
+
 
 const row = {
   display: "flex",

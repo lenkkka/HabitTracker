@@ -20,6 +20,35 @@ function uid() {
   return Math.random().toString(36).slice(2, 10);
 }
 
+
+async function ensureHabitOrder(list) {
+  // If some habits don't have an order yet, assign it once and persist.
+  let changed = false;
+  const withOrder = list.map((h, i) => {
+    if (h.order === undefined || h.order === null) {
+      changed = true;
+      return { ...h, order: i };
+    }
+    return h;
+  });
+  if (changed) {
+    for (const h of withOrder) {
+      await putHabit(h);
+    }
+  }
+  return withOrder;
+}
+
+function sortHabits(list) {
+  return [...list].sort((a, b) => {
+    const ao = a.order ?? 0;
+    const bo = b.order ?? 0;
+    if (ao !== bo) return ao - bo;
+    return String(a.name || "").localeCompare(String(b.name || ""));
+  });
+}
+
+
 const DEFAULT_ONE = {
   id: "surfing",
   name: "Surfing",
@@ -36,7 +65,9 @@ export default function App() {
   const [addOpen, setAddOpen] = useState(false);
 
   async function refreshHabits() {
-    setHabits(await getHabits());
+    const list = await getHabits();
+    const normalized = await ensureHabitOrder(list);
+    setHabits(sortHabits(normalized));
   }
 
   useEffect(() => {
@@ -65,7 +96,7 @@ export default function App() {
         ) : (
           <Routes>
             <Route path="/" element={<TrackerPage dateISO={dateISO} setDateISO={setDateISO} habits={habits} />} />
-            <Route path="/stats" element={<StatsPage habits={habits} />} />
+            <Route path="/stats" element={<StatsPage habits={habits} onReorder={refreshHabits} />} />
             <Route path="/calendar" element={<CalendarPage habits={habits} />} />
             <Route path="/habit/:id" element={<HabitPage habits={habits} onHabitsChanged={refreshHabits} />} />
           </Routes>
@@ -79,9 +110,10 @@ export default function App() {
 
       <AddHabitModal
         open={addOpen}
+        usedColors={habits.map(h => h.color).filter(Boolean)}
         onClose={() => setAddOpen(false)}
         onSave={async (data) => {
-          const h = { id: uid(), ...data };
+          const h = { id: uid(), order: habits.length, ...data };
           await putHabit(h);
           await refreshHabits();
         }}
@@ -91,7 +123,7 @@ export default function App() {
 }
 
 function Header({ onAdd }) {
-  const linkStyle = ({ isActive }) => ({
+const linkStyle = ({ isActive }) => ({
     padding: "10px 14px",
     borderRadius: 999,
     textDecoration: "none",
@@ -105,20 +137,28 @@ function Header({ onAdd }) {
   });
 
   return (
-    <header style={{ display: "flex", gap: 10, alignItems: "center", flexWrap:"wrap" }}>
-      <div style={{ fontSize: 18, fontWeight: 950, letterSpacing: .2 }}>Habit Tracker</div>
-      <div style={{ marginLeft: "auto", display: "flex", gap: 8, flexWrap:"wrap" }}>
-        <NavLink to="/" style={linkStyle}>Tracker</NavLink>
-        <NavLink to="/stats" style={linkStyle}>Stats</NavLink>
-        <NavLink to="/calendar" style={linkStyle}>Calendar</NavLink>
-        <button onClick={onAdd} style={btn} type="button">+ Habit</button>
+    <header style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ fontSize: 18, fontWeight: 950, letterSpacing: 0.2 }}>Habit Tracker</div>
+
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <NavLink to="/" style={linkStyle}>Tracker</NavLink>
+          <NavLink to="/stats" style={linkStyle}>Stats</NavLink>
+          <NavLink to="/calendar" style={linkStyle}>Calendar</NavLink>
+        </div>
+
+        <div style={{ marginLeft: "auto" }}>
+          <button onClick={onAdd} style={btn} type="button" aria-label="Add habit">+</button>
+        </div>
       </div>
     </header>
   );
 }
 
+
 const wrap = {
   padding: 16,
+  paddingTop: "calc(72px + env(safe-area-inset-top))",
   maxWidth: 980,
   margin: "0 auto",
   color: "var(--text)",
@@ -126,10 +166,16 @@ const wrap = {
 };
 
 const btn = {
-  padding: "10px 14px",
-  borderRadius: 999,
-  border: "1px solid rgba(255,255,255,.14)",
-  background: "rgba(255,255,255,.08)",
-  color: "#fff",
+  width: 44,
+  height: 44,
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  borderRadius: 14,
+  border: "1px solid rgba(255,255,255,.18)",
+  background: "linear-gradient(135deg, rgba(109,93,254,1), rgba(46,212,255,1))",
+  color: "#06131b",
   fontWeight: 950,
+  boxShadow: "0 14px 34px rgba(109,93,254,.22)",
 };
+
