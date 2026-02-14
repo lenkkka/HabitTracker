@@ -1,10 +1,17 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Routes, Route } from "react-router-dom";
 import TrackerPage from "./pages/TrackerPage";
 import StatsPage from "./pages/StatsPage";
 import HabitPage from "./pages/HabitPage";
 import CalendarPage from "./pages/CalendarPage";
-import { getHabits, putHabit, getMeta, setMeta, exportBackup, importBackup } from "./storage/db";
+import {
+  getHabits,
+  putHabit,
+  getMeta,
+  setMeta,
+  exportBackup,
+  importBackup,
+} from "./storage/db";
 import AddHabitModal from "./components/AddHabitModal";
 import OceanWaves from "./components/OceanWaves";
 import BottomNav from "./components/BottomNav";
@@ -19,6 +26,14 @@ function isoToday() {
 }
 function uid() {
   return Math.random().toString(36).slice(2, 10);
+}
+
+function getGreetingParts(date = new Date()) {
+  const h = date.getHours();
+  if (h >= 5 && h <= 11) return { text: "Good Morning", emoji: "🌅" };
+  if (h >= 12 && h <= 16) return { text: "Good Afternoon", emoji: "☀️" };
+  if (h >= 17 && h <= 21) return { text: "Good Evening", emoji: "🌇" };
+  return { text: "Good Night", emoji: "🌙" };
 }
 
 async function ensureHabitOrder(list) {
@@ -66,6 +81,12 @@ export default function App() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [restoreBusy, setRestoreBusy] = useState(false);
 
+  // Personal info (optional)
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [now, setNow] = useState(() => new Date()); // for auto-updating greeting
+
+
   const fileRef = useRef(null);
 
   async function refreshHabits() {
@@ -82,10 +103,62 @@ export default function App() {
         await putHabit(DEFAULT_ONE);
         await setMeta("seeded", true);
       }
+
+      // Load personal info
+      const fn = (await getMeta("firstName")) ?? "";
+      const ln = (await getMeta("lastName")) ?? "";
+      setFirstName(String(fn || ""));
+      setLastName(String(ln || ""));
+
       await refreshHabits();
       setReady(true);
     })();
   }, []);
+
+  // Update greeting automatically when time-of-day changes (no refresh needed)
+  useEffect(() => {
+    let timerId;
+
+    const scheduleNext = () => {
+      const d = new Date();
+      const h = d.getHours();
+      const next = new Date(d);
+
+      if (h < 5) next.setHours(5, 0, 0, 0);
+      else if (h < 12) next.setHours(12, 0, 0, 0);
+      else if (h < 17) next.setHours(17, 0, 0, 0);
+      else if (h < 22) next.setHours(22, 0, 0, 0);
+      else {
+        next.setDate(next.getDate() + 1);
+        next.setHours(5, 0, 0, 0);
+      }
+
+      const delayMs = Math.max(1000, next.getTime() - d.getTime() + 50);
+      timerId = window.setTimeout(() => {
+        setNow(new Date());
+        scheduleNext();
+      }, delayMs);
+    };
+
+    scheduleNext();
+    return () => {
+      if (timerId) window.clearTimeout(timerId);
+    };
+  }, []);
+
+
+  const greeting = useMemo(() => {
+    const { text, emoji } = getGreetingParts(now);
+    const name = [firstName, lastName]
+      .map((s) => String(s || "").trim())
+      .filter(Boolean)
+      .join(" ");
+
+    // Format:
+    // - With name: "Good Morning, First Last! 🌅"
+    // - Without:   "Good Morning! 🌅"
+    return name ? `${text}, ${name}! ${emoji}` : `${text}! ${emoji}`;
+  }, [firstName, lastName, now]);
 
   async function handleDownloadBackup() {
     const data = await exportBackup();
@@ -126,6 +199,13 @@ export default function App() {
       const text = await file.text();
       const parsed = JSON.parse(text);
       await importBackup(parsed);
+
+      // Re-load personal info after restore
+      const fn = (await getMeta("firstName")) ?? "";
+      const ln = (await getMeta("lastName")) ?? "";
+      setFirstName(String(fn || ""));
+      setLastName(String(ln || ""));
+
       await refreshHabits();
       setDrawerOpen(false);
     } catch (err) {
@@ -136,12 +216,21 @@ export default function App() {
     }
   }
 
+  async function handleUpdateFirstName(v) {
+    setFirstName(v);
+    await setMeta("firstName", v);
+  }
+  async function handleUpdateLastName(v) {
+    setLastName(v);
+    await setMeta("lastName", v);
+  }
+
   return (
     <div style={{ minHeight: "100vh", position: "relative" }}>
       <OceanWaves />
 
       <div style={wrap}>
-        <Header onMenu={() => setDrawerOpen(true)} />
+        <Header title={greeting} onMenu={() => setDrawerOpen(true)} />
 
         <div style={{ height: 14 }} />
 
@@ -193,9 +282,13 @@ export default function App() {
       <SideDrawer
         open={drawerOpen}
         busy={restoreBusy}
+        firstName={firstName}
+        lastName={lastName}
         onClose={() => setDrawerOpen(false)}
         onDownload={handleDownloadBackup}
         onRestore={handlePickRestoreFile}
+        onFirstNameChange={handleUpdateFirstName}
+        onLastNameChange={handleUpdateLastName}
       />
 
       <input
@@ -209,30 +302,36 @@ export default function App() {
   );
 }
 
-function Header({ onMenu }) {
+function Header({ title, onMenu }) {
   return (
     <header style={{ display: "flex", alignItems: "center", gap: 10 }}>
       <button
         type="button"
-        aria-label="Open menu"
+        aria-label="Open personal menu"
         onClick={onMenu}
         style={menuBtn}
       >
-        <MenuIcon />
+        <PersonIcon />
       </button>
 
       <div style={{ fontSize: 18, fontWeight: 950, letterSpacing: 0.2 }}>
-        Habit Tracker
-      </div>
-
-      <div style={{ marginLeft: "auto", opacity: 0.75, fontSize: 12 }}>
-        Tracker • Stats • Calendar
+        {title}
       </div>
     </header>
   );
 }
 
-function SideDrawer({ open, busy, onClose, onDownload, onRestore }) {
+function SideDrawer({
+  open,
+  busy,
+  firstName,
+  lastName,
+  onClose,
+  onDownload,
+  onRestore,
+  onFirstNameChange,
+  onLastNameChange,
+}) {
   return (
     <>
       {/* scrim */}
@@ -254,13 +353,13 @@ function SideDrawer({ open, busy, onClose, onDownload, onRestore }) {
       <aside
         role="dialog"
         aria-modal="true"
-        aria-label="Menu"
+        aria-label="Profile"
         style={{
           position: "fixed",
           top: 0,
           left: 0,
           height: "100dvh",
-          width: "min(320px, 86vw)",
+          width: "min(340px, 88vw)",
           transform: open ? "translateX(0)" : "translateX(-105%)",
           transition: "transform 220ms ease",
           zIndex: 9999,
@@ -279,11 +378,43 @@ function SideDrawer({ open, busy, onClose, onDownload, onRestore }) {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ fontWeight: 950, letterSpacing: 0.2 }}>Menu</div>
+          <div style={{ fontWeight: 950, letterSpacing: 0.2 }}>Profile</div>
           <div style={{ marginLeft: "auto" }}>
             <button type="button" onClick={onClose} style={closeBtn}>
               ✕
             </button>
+          </div>
+        </div>
+
+        <div style={card}>
+          <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 8 }}>
+            Personal Info
+          </div>
+
+          <label style={label}>
+            <div style={labelTop}>First name (optional)</div>
+            <input
+              value={firstName}
+              onChange={(e) => onFirstNameChange(e.target.value)}
+              placeholder="First name"
+              style={input}
+              autoComplete="given-name"
+            />
+          </label>
+
+          <label style={label}>
+            <div style={labelTop}>Last name (optional)</div>
+            <input
+              value={lastName}
+              onChange={(e) => onLastNameChange(e.target.value)}
+              placeholder="Last name"
+              style={input}
+              autoComplete="family-name"
+            />
+          </label>
+
+          <div style={{ fontSize: 12, opacity: 0.7, marginTop: 8, lineHeight: 1.35 }}>
+            Your name is stored locally (and included in backups). You can leave it empty.
           </div>
         </div>
 
@@ -321,7 +452,8 @@ function SideDrawer({ open, busy, onClose, onDownload, onRestore }) {
   );
 }
 
-function MenuIcon() {
+function PersonIcon() {
+  // "user" outline, centered optically
   return (
     <svg
       width="22"
@@ -333,10 +465,10 @@ function MenuIcon() {
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
+      style={{ display: "block" }}
     >
-      <path d="M4 7h16" />
-      <path d="M4 12h16" />
-      <path d="M4 17h16" />
+      <path d="M20 21a8 8 0 0 0-16 0" />
+      <circle cx="12" cy="8" r="4" />
     </svg>
   );
 }
@@ -345,8 +477,11 @@ const menuBtn = {
   width: 40,
   height: 40,
   borderRadius: 999,
-  display: "grid",
-  placeItems: "center",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: 0,
+  lineHeight: 0,
   border: "1px solid rgba(255,255,255,.14)",
   background: "rgba(255,255,255,.06)",
   color: "rgba(234,246,255,.92)",
@@ -362,6 +497,13 @@ const closeBtn = {
   background: "rgba(255,255,255,.06)",
   color: "rgba(234,246,255,.92)",
   cursor: "pointer",
+  padding: 0,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  lineHeight: 1,
+  fontSize: 18,
+  fontWeight: 800,
 };
 
 const card = {
@@ -383,6 +525,20 @@ const drawerBtn = {
   fontWeight: 750,
   textAlign: "left",
   marginTop: 10,
+};
+
+const label = { display: "block", marginTop: 10 };
+const labelTop = { fontSize: 12, opacity: 0.72, marginBottom: 6, fontWeight: 650 };
+
+const input = {
+  width: "100%",
+  padding: "12px 12px",
+  borderRadius: 14,
+  border: "1px solid rgba(255,255,255,.14)",
+  background: "rgba(0,0,0,.10)",
+  color: "rgba(234,246,255,.92)",
+  outline: "none",
+  fontWeight: 750,
 };
 
 const wrap = {

@@ -18,19 +18,15 @@ function Icon({ children }) {
   );
 }
 
-function TrackerIcon() {
+function ChecklistIcon() {
   return (
     <Icon>
-      <path d="M4 7h16" />
-      <path d="M7 3v4" />
-      <path d="M17 3v4" />
-      <rect x="4" y="7" width="16" height="14" rx="3" />
-      <path d="M8 11h.01" />
-      <path d="M12 11h.01" />
-      <path d="M16 11h.01" />
-      <path d="M8 15h.01" />
-      <path d="M12 15h.01" />
-      <path d="M16 15h.01" />
+      <path d="M9 6h11" />
+      <path d="M9 12h11" />
+      <path d="M9 18h11" />
+      <path d="M4 6l2 2 3-3" />
+      <path d="M4 12l2 2 3-3" />
+      <path d="M4 18l2 2 3-3" />
     </Icon>
   );
 }
@@ -54,31 +50,16 @@ function CalendarIcon() {
       <path d="M8 3v4" />
       <path d="M16 3v4" />
       <path d="M4 9h16" />
-      <path d="M8 13h.01" />
-      <path d="M12 13h.01" />
-      <path d="M16 13h.01" />
-      <path d="M8 17h.01" />
-      <path d="M12 17h.01" />
     </Icon>
   );
 }
 
 function PlusIcon() {
   return (
-    <svg
-      width="22"
-      height="22"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
+    <Icon>
       <path d="M12 6v12" />
       <path d="M6 12h12" />
-    </svg>
+    </Icon>
   );
 }
 
@@ -100,11 +81,12 @@ export default function BottomNav({ onAdd }) {
       ? "linear-gradient(135deg, var(--accent), var(--accent2))"
       : "transparent",
     boxShadow: isActive ? "0 14px 34px rgba(53,197,255,.22)" : "none",
-    border: isActive ? "1px solid rgba(255,255,255,.22)" : "1px solid transparent",
-    transition: "transform 160ms ease, box-shadow 160ms ease, background 160ms ease",
+    border: isActive
+      ? "1px solid rgba(255,255,255,.22)"
+      : "1px solid transparent",
+    transition:
+      "transform 160ms ease, box-shadow 160ms ease, background 160ms ease",
   });
-
-  const addBtnActive = path === "/add"; // (never true; keeps symmetry if you later add a route)
 
   return (
     <nav
@@ -129,18 +111,22 @@ export default function BottomNav({ onAdd }) {
         zIndex: 9999,
       }}
     >
-      <NavLink to="/" style={itemStyle} end aria-label="Tracker">
-        <TrackerIcon />
-      </NavLink>
-
-      <NavLink to="/stats" style={itemStyle} aria-label="Stats">
-        <StatsIcon />
-      </NavLink>
-
+      {/* 1️⃣ Calendar теперь первый */}
       <NavLink to="/calendar" style={itemStyle} aria-label="Calendar">
         <CalendarIcon />
       </NavLink>
 
+      {/* 2️⃣ Stats */}
+      <NavLink to="/stats" style={itemStyle} aria-label="Stats">
+        <StatsIcon />
+      </NavLink>
+
+      {/* 3️⃣ Checklist (Tracker) */}
+      <NavLink to="/" style={itemStyle} end aria-label="Tracker">
+        <ChecklistIcon />
+      </NavLink>
+
+      {/* 4️⃣ Plus */}
       <button
         type="button"
         onClick={onAdd}
@@ -154,15 +140,13 @@ export default function BottomNav({ onAdd }) {
           justifyContent: "center",
           borderRadius: 999,
           border: "1px solid rgba(255,255,255,.18)",
-          background: "linear-gradient(135deg, rgba(109,93,254,1), rgba(46,212,255,1))",
+          background:
+            "linear-gradient(135deg, rgba(109,93,254,1), rgba(46,212,255,1))",
           color: "#06131b",
           boxShadow: "0 14px 34px rgba(109,93,254,.22)",
           cursor: "pointer",
           transition: "transform 160ms ease, box-shadow 160ms ease",
         }}
-        onMouseDown={(e) => e.currentTarget.style.transform = "scale(0.98)"}
-        onMouseUp={(e) => e.currentTarget.style.transform = "scale(1)"}
-        onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
       >
         <PlusIcon />
       </button>
