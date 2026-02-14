@@ -56,10 +56,7 @@ export default function TrackerPage({ dateISO, setDateISO, habits }) {
     } else if (kind === "optional") {
       setDetailTitle("Optional habits");
       setDetailHabits(habits.filter((h) => !h.required));
-    } else {
-      setDetailTitle("Count habits");
-      setDetailHabits(habits.filter((h) => h.kind === "count"));
-    }
+    } 
     setDetailOpen(true);
   }
 
@@ -245,7 +242,6 @@ function TodaySummary({ habits, dateISO, bump, onOpen }) {
   const [summary, setSummary] = useState({
     reqPct: 0,
     optPct: 0,
-    countTotal: 0,
   });
 
   useEffect(() => {
@@ -274,14 +270,7 @@ function TodaySummary({ habits, dateISO, bump, onOpen }) {
         }
       }
       const optPct = opt.length ? Math.round((optDone / opt.length) * 100) : 100;
-
-      const counts = habits.filter((h) => h.kind === "count");
-      let countTotal = 0;
-      for (const h of counts) {
-        countTotal += (await getLog(dateISO, h.id)) || 0;
-      }
-
-      setSummary({ reqPct, optPct, countTotal });
+      setSummary({ reqPct, optPct });
     })();
   }, [habits, dateISO, bump]);
 
@@ -289,7 +278,7 @@ function TodaySummary({ habits, dateISO, bump, onOpen }) {
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: "1fr 1px 1fr 1px 1fr",
+        gridTemplateColumns: "1fr 1px 1fr",
         alignItems: "center",
         gap: 0,
       }}
@@ -314,18 +303,6 @@ function TodaySummary({ habits, dateISO, bump, onOpen }) {
       >
         <div style={kpiValue}>{summary.optPct}%</div>
         <div style={kpiLabel}>Optional</div>
-      </button>
-
-      <div style={kpiDivider} />
-
-      <button
-        type="button"
-        style={kpiColBtn}
-        onClick={() => onOpen?.("count")}
-        aria-label="Show count habits"
-      >
-        <div style={kpiValue}>{summary.countTotal}</div>
-        <div style={kpiLabel}>Count total</div>
       </button>
     </div>
   );

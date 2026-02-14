@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Routes, Route, NavLink } from "react-router-dom";
+import { Routes, Route } from "react-router-dom";
 import TrackerPage from "./pages/TrackerPage";
 import StatsPage from "./pages/StatsPage";
 import HabitPage from "./pages/HabitPage";
@@ -7,6 +7,7 @@ import CalendarPage from "./pages/CalendarPage";
 import { getHabits, putHabit, getMeta, setMeta } from "./storage/db";
 import AddHabitModal from "./components/AddHabitModal";
 import OceanWaves from "./components/OceanWaves";
+import BottomNav from "./components/BottomNav";
 
 function isoToday(){
   const d = new Date();
@@ -87,7 +88,7 @@ export default function App() {
     <div style={{ minHeight: "100vh", position: "relative" }}>
       <OceanWaves />
       <div style={wrap}>
-        <Header onAdd={() => setAddOpen(true)} />
+        <Header />
 
         <div style={{ height: 14 }} />
 
@@ -108,6 +109,8 @@ export default function App() {
         </div>
       </div>
 
+      <BottomNav onAdd={() => setAddOpen(true)} />
+
       <AddHabitModal
         open={addOpen}
         usedColors={habits.map(h => h.color).filter(Boolean)}
@@ -122,34 +125,14 @@ export default function App() {
   );
 }
 
-function Header({ onAdd }) {
-const linkStyle = ({ isActive }) => ({
-    padding: "10px 14px",
-    borderRadius: 999,
-    textDecoration: "none",
-    color: isActive ? "#001018" : "rgba(234,246,255,.92)",
-    background: isActive
-      ? "linear-gradient(135deg, rgba(53,197,255,1), rgba(26,123,255,1))"
-      : "rgba(255,255,255,.06)",
-    border: "1px solid rgba(255,255,255,.14)",
-    boxShadow: isActive ? "0 12px 30px rgba(53,197,255,.18)" : "none",
-    fontWeight: 950,
-  });
-
+function Header() {
   return (
-    <header style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-      <div style={{ fontSize: 18, fontWeight: 950, letterSpacing: 0.2 }}>Habit Tracker</div>
-
-      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <NavLink to="/" style={linkStyle}>Tracker</NavLink>
-          <NavLink to="/stats" style={linkStyle}>Stats</NavLink>
-          <NavLink to="/calendar" style={linkStyle}>Calendar</NavLink>
-        </div>
-
-        <div style={{ marginLeft: "auto" }}>
-          <button onClick={onAdd} style={btn} type="button" aria-label="Add habit">+</button>
-        </div>
+    <header style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      <div style={{ fontSize: 18, fontWeight: 950, letterSpacing: 0.2 }}>
+        Habit Tracker
+      </div>
+      <div style={{ marginLeft: "auto", opacity: 0.75, fontSize: 12 }}>
+        Tracker • Stats • Calendar
       </div>
     </header>
   );
@@ -158,24 +141,10 @@ const linkStyle = ({ isActive }) => ({
 
 const wrap = {
   padding: 16,
-  paddingTop: "calc(72px + env(safe-area-inset-top))",
+  paddingTop: "calc(48px + env(safe-area-inset-top))",
   maxWidth: 980,
   margin: "0 auto",
   color: "var(--text)",
-  paddingBottom: "max(16px, env(safe-area-inset-bottom))",
-};
-
-const btn = {
-  width: 44,
-  height: 44,
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  borderRadius: 14,
-  border: "1px solid rgba(255,255,255,.18)",
-  background: "linear-gradient(135deg, rgba(109,93,254,1), rgba(46,212,255,1))",
-  color: "#06131b",
-  fontWeight: 950,
-  boxShadow: "0 14px 34px rgba(109,93,254,.22)",
+  paddingBottom: "calc(110px + env(safe-area-inset-bottom))",
 };
 

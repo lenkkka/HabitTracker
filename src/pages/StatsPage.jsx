@@ -4,16 +4,31 @@ import { putHabit } from "../storage/db";
 export default function StatsPage({ habits, onReorder }) {
   const nav = useNavigate();
 
+  /**
+   * Reorder habits deterministically:
+   * - swap the two items in the *current* rendered list
+   * - then rewrite ALL `order` fields to 0..n-1 and persist
+   *
+   * This avoids edge cases where `order` values are missing, duplicated,
+   * non-contiguous, or stored as strings from older data.
+   */
   async function move(idx, dir) {
     const j = idx + dir;
     if (j < 0 || j >= habits.length) return;
 
-    const a = habits[idx];
-    const b = habits[j];
+    // Swap in the current UI order
+    const next = [...habits];
+    [next[idx], next[j]] = [next[j], next[idx]];
 
-    // swap orders
-    await putHabit({ ...a, order: b.order ?? j });
-    await putHabit({ ...b, order: a.order ?? idx });
+    // Persist a clean, contiguous ordering
+    await Promise.all(
+      next.map((h, i) =>
+        putHabit({
+          ...h,
+          order: i,
+        })
+      )
+    );
 
     onReorder && onReorder();
   }
@@ -33,14 +48,8 @@ export default function StatsPage({ habits, onReorder }) {
 
           return (
             <div key={h.id} style={{ ...rowWrap, borderLeft: `5px solid ${color}` }}>
-              <button
-                onClick={() => nav(`/habit/${h.id}`)}
-                style={habitBtn}
-                type="button"
-              >
-                <div style={{ width: 28, textAlign: "center", fontSize: 18 }}>
-                  {h.icon || "•"}
-                </div>
+              <button onClick={() => nav(`/habit/${h.id}`)} style={habitBtn} type="button">
+                <div style={{ width: 28, textAlign: "center", fontSize: 18 }}>{h.icon || "•"}</div>
 
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontWeight: 900 }}>{h.name}</div>
